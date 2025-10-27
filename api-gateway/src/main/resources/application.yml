@@ -1,0 +1,89 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  
+  cloud:
+    gateway:
+      # Configuration CORS globale
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: 
+              - "http://localhost:8080"
+              - "http://127.0.0.1:8080"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      
+      # Routes vers les microservices
+      routes:
+        # Account Service - Auth endpoints (PUBLIC)
+        - id: auth-routes
+          uri: http://localhost:8081
+          predicates:
+            - Path=/auth/**
+          filters:
+            - StripPrefix=0
+        
+        # Account Service - User/Account management (PROTECTED)
+        - id: account-routes
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/**, /accounts/**
+          filters:
+            - StripPrefix=0
+        
+        # Wallet Service (PROTECTED)
+        - id: wallet-routes
+          uri: http://localhost:8082
+          predicates:
+            - Path=/wallets/**, /transactions/**
+          filters:
+            - StripPrefix=0
+        
+        # Order Service (PROTECTED)
+        - id: order-routes
+          uri: http://localhost:8083
+          predicates:
+            - Path=/orders/**
+          filters:
+            - StripPrefix=0
+        
+        # Audit endpoint (DEBUG - should be protected in prod)
+        - id: audit-routes
+          uri: http://localhost:8081
+          predicates:
+            - Path=/audit/**
+          filters:
+            - StripPrefix=0
+
+# JWT Configuration (pour validation dans le Gateway)
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForBrokerXPlatform2025ThisIsVerySecretAndLongEnough}
+
+# Management/Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+    com.brokerx: INFO

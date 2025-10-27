@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: brokerx
+  
+  # Configuration par défaut (DEV avec H2)
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:brokerx;DB_CLOSE_DELAY=-1}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  
+  jpa:
+    hibernate:
+      # CRITIQUE : Flyway gère le schéma, pas Hibernate !
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        # NE PAS spécifier de dialecte ici, laisser Hibernate le détecter
+        # dialect: sera auto-détecté selon la DB connectée
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings :
+        web-allow-others: true
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    schemas: public
+    clean-disabled: true
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForBrokerXPlatform2025ThisIsVerySecretAndLongEnough}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,flyway
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.brokerx: INFO
+    org.springframework.security: INFO
+    org.flywaydb: INFO
+    org.hibernate.SQL: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/brokerx.log
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true

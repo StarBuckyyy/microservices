@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Audit Logs Viewer - BrokerX+</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        h1 {
+            color: #4ec9b0;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+        
+        .controls {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #1177bb;
+        }
+        
+        .log-item {
+            background: #252526;
+            border-left: 4px solid #4ec9b0;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        
+        .log-item.CREATE { border-left-color: #4ec9b0; }
+        .log-item.UPDATE { border-left-color: #ce9178; }
+        .log-item.DELETE { border-left-color: #f48771; }
+        .log-item.LOGIN { border-left-color: #569cd6; }
+        .log-item.MFA_SUCCESS { border-left-color: #6a9955; }
+        .log-item.MFA_FAILURE { border-left-color: #d16969; }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .action {
+            color: #4ec9b0;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: rgba(78, 201, 176, 0.2);
+        }
+        
+        .entity-type {
+            color: #569cd6;
+        }
+        
+        .timestamp {
+            color: #858585;
+            font-size: 0.9em;
+        }
+        
+        .log-body {
+            color: #d4d4d4;
+            line-height: 1.6;
+        }
+        
+        .json-display {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+        
+        pre {
+            margin: 0;
+            color: #ce9178;
+        }
+        
+        .stats {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            display: inline-block;
+            margin-right: 30px;
+        }
+        
+        .stat-value {
+            color: #4ec9b0;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            color: #858585;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #858585;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Audit Logs Viewer</h1>
+        
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="totalLogs">-</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="lastUpdate">-</div>
+                <div class="stat-label">Last Update</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="loadAllLogs()">🔄 Tous les logs</button>
+            <button onclick="loadRecent(5)">📋 5 derniers</button>
+            <button onclick="loadRecent(10)">📋 10 derniers</button>
+            <button onclick="loadByAction('CREATE')">➕ CREATE</button>
+            <button onclick="loadByAction('UPDATE')">✏️ UPDATE</button>
+            <button onclick="loadByAction('DELETE')">🗑️ DELETE</button>
+            <button onclick="loadByAction('LOGIN')">🔐 LOGIN</button>
+            <button onclick="loadByEntityType('ORDER')">📈 ORDERS</button>
+            <button onclick="loadByEntityType('USER')">👤 USERS</button>
+        </div>
+        
+        <div id="logsContainer"></div>
+    </div>
+
+    <script>
+        async function loadAllLogs() {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="loading">Chargement...</div>';
+            
+            try {
+                const response = await fetch('/audit');
+                const logs = await response.json();
+                
+                document.getElementById('totalLogs').textContent = logs.length;
+                updateLastUpdate();
+                
+                displayLogs(logs);
+            } catch (error) {
+                container.innerHTML = `<div class="loading">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadRecent(limit) {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="loading">Chargement...</div>';
+            
+            try {
+                const response = await fetch(`/audit/recent?limit=${limit}`);
+                const logs = await response.json();
+                displayLogs(logs);
+            } catch (error) {
+                container.innerHTML = `<div class="loading">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadByAction(action) {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="loading">Chargement...</div>';
+            
+            try {
+                const response = await fetch(`/audit/by-action/${action}`);
+                const logs = await response.json();
+                displayLogs(logs, `Action: ${action}`);
+            } catch (error) {
+                container.innerHTML = `<div class="loading">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadByEntityType(entityType) {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="loading">Chargement...</div>';
+            
+            try {
+                const response = await fetch(`/audit/by-entity-type/${entityType}`);
+                const logs = await response.json();
+                displayLogs(logs, `Entity Type: ${entityType}`);
+            } catch (error) {
+                container.innerHTML = `<div class="loading">❌ Erreur: ${error.message}</div>`;
+            }
+        }
+        
+        function displayLogs(logs, filterInfo = '') {
+            const container = document.getElementById('logsContainer');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="loading">Aucun log trouvé</div>';
+                return;
+            }
+            
+            let html = '';
+            if (filterInfo) {
+                html += `<div class="stats"><h3>${filterInfo} (${logs.length} logs)</h3></div>`;
+            }
+            
+            logs.forEach(log => {
+                const date = new Date(log.performedAt);
+                html += `
+                    <div class="log-item ${log.action}">
+                        <div class="log-header">
+                            <div>
+                                <span class="action">${log.action}</span>
+                                <span class="entity-type">${log.entityType}</span>
+                                <span style="color: #858585">${log.entityId}</span>
+                            </div>
+                            <div class="timestamp">${date.toLocaleString()}</div>
+                        </div>
+                        <div class="log-body">
+                            ${log.performedBy ? `<div>👤 User: ${log.performedBy}</div>` : ''}
+                            ${log.ipAddress ? `<div>🌐 IP: ${log.ipAddress}</div>` : ''}
+                            ${log.newValues ? `
+                                <div class="json-display">
+                                    <strong>New Values:</strong>
+                                    <pre>${JSON.stringify(JSON.parse(log.newValues), null, 2)}</pre>
+                                </div>
+                            ` : ''}
+                            ${log.oldValues ? `
+                                <div class="json-display">
+                                    <strong>Old Values:</strong>
+                                    <pre>${JSON.stringify(JSON.parse(log.oldValues), null, 2)}</pre>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                now.toLocaleTimeString();
+        }
+        
+        // Charger les logs au démarrage
+        window.addEventListener('DOMContentLoaded', loadAllLogs);
+        
+        // Auto-refresh toutes les 30 secondes
+        setInterval(() => {
+            if (document.getElementById('logsContainer').children.length > 0) {
+                loadAllLogs();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

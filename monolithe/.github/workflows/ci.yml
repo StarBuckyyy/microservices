@@ -1,0 +1,54 @@
+name: Java CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build and test with Maven
+      run: mvn -B clean install
+    
+ 
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: brokerx-jar
+        path: target/brokerx-1.0.0.jar
+
+  deploy:
+    name: Deploy to VM
+    needs: build-and-test
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy with Docker Compose
+      run: |
+        echo "Starting deployment..."
+        # Arrête les anciens conteneurs s'ils existent et supprime les anciens volumes
+        docker-compose down -v --remove-orphans
+        
+        # Construit les nouvelles images et démarre les conteneurs en arrière-plan
+        docker-compose up --build -d
+        
+        echo "Deployment successful!"
+
+    - name: Clean up old Docker images
+      run: docker image prune -af

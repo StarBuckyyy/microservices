@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Connexion - BrokerX+</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 400px; 
+            margin: 50px auto; 
+            padding: 20px; 
+        }
+        input { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 10px 0; 
+            box-sizing: border-box; 
+        }
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 16px; 
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .message { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            color: #155724; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+            color: #721c24; 
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        #mfaSection {
+            display: none;
+        }
+        .otp-display {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .otp-code {
+            font-size: 2em;
+            font-weight: bold;
+            color: #856404;
+            letter-spacing: 5px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Connexion à BrokerX+</h1>
+    
+    <!-- Section Login -->
+    <div id="loginSection">
+        <form id="loginForm">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Mot de passe" required>
+            <button type="submit" id="loginBtn">Se connecter</button>
+        </form>
+    </div>
+
+    <!-- Section MFA -->
+    <div id="mfaSection">
+        <div class="otp-display" id="otpDisplayBox" style="display: none;">
+            <p style="margin: 0; font-size: 0.9em; color: #856404;">📱 Code de vérification (DEV MODE)</p>
+            <p class="otp-code" id="otpDisplay"></p>
+            <p style="margin: 0; font-size: 0.8em; color: #856404;">
+                ⚠️ En production, ce code serait envoyé par SMS/Email
+            </p>
+        </div>
+        <form id="mfaForm">
+            <input type="text" id="otpCode" placeholder="Entrez le code à 6 chiffres" maxlength="6" required>
+            <button type="submit" id="mfaBtn">Vérifier</button>
+        </form>
+    </div>
+
+    <div id="messageDiv"></div>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <p>Pas encore de compte ? <a href="signup.html">S'inscrire</a></p>
+    </div>
+
+    <script>
+        let tempToken = null;
+
+        const loginForm = document.getElementById('loginForm');
+        const mfaForm = document.getElementById('mfaForm');
+        const messageDiv = document.getElementById('messageDiv');
+        const loginBtn = document.getElementById('loginBtn');
+        const mfaBtn = document.getElementById('mfaBtn');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                email: document.getElementById('email').value,
+                hashedPassword: document.getElementById('password').value
+            };
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Connexion...';
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    if (result.mfaRequired) {
+                        // MFA requis
+                        tempToken = result.tempToken;
+                        document.getElementById('loginSection').style.display = 'none';
+                        document.getElementById('mfaSection').style.display = 'block';
+                        
+                        // Extraire l'OTP du message (format: "MFA requis. Code OTP: 123456")
+                        let otpCode = '';
+                        if (result.message && result.message.includes('Code OTP:')) {
+                            otpCode = result.message.split('Code OTP:')[1].trim();
+                            document.getElementById('otpDisplay').textContent = otpCode;
+                            document.getElementById('otpDisplayBox').style.display = 'block';
+                        } else {
+                            // Fallback si le format est différent
+                            messageDiv.innerHTML = `
+                                <div class="message info">
+                                    ${result.message}<br>
+                                    <small>Consultez les logs de l'application pour obtenir le code OTP</small>
+                                </div>
+                            `;
+                        }
+                        
+                        // Message additionnel
+                        messageDiv.innerHTML += `
+                            <div class="message info" style="margin-top: 10px;">
+                                <strong>💡 Astuce :</strong> Le code est valide pendant 5 minutes.
+                            </div>
+                        `;
+                    } else if (result.token) {
+                        // Connexion réussie directement
+                        localStorage.setItem('token', result.token);
+                        localStorage.setItem('userEmail', result.email);
+                        
+                        messageDiv.innerHTML = `
+                            <div class="message success">
+                                Connexion réussie! Redirection...
+                            </div>
+                        `;
+                        
+                        setTimeout(() => {
+                            window.location.href = 'dashboard.html';
+                        }, 1500);
+                    }
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="message error">
+                            ${result.message || 'Erreur de connexion'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Erreur de connexion : ${error.message}
+                    </div>
+                `;
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Se connecter';
+            }
+        });
+
+        mfaForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!tempToken) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Session MFA invalide. Veuillez vous reconnecter.
+                    </div>
+                `;
+                return;
+            }
+
+            const otpCode = document.getElementById('otpCode').value;
+
+            mfaBtn.disabled = true;
+            mfaBtn.textContent = 'Vérification...';
+
+            try {
+                const response = await fetch('/auth/verify-mfa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tempToken: tempToken,
+                        otpCode: otpCode
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success && result.token) {
+                    // Sauvegarder le token
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('userEmail', result.email);
+                    
+                    console.log('Token saved:', result.token); // Debug
+                    
+                    messageDiv.innerHTML = `
+                        <div class="message success">
+                            Authentification réussie! Redirection...
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="message error">
+                            ${result.message || 'Code OTP invalide'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Erreur de vérification : ${error.message}
+                    </div>
+                `;
+            } finally {
+                mfaBtn.disabled = false;
+                mfaBtn.textContent = 'Vérifier';
+            }
+        });
+    </script>
+</body>
+</html>

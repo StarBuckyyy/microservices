@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Vérification OTP</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 400px; 
+            margin: 50px auto; 
+            padding: 20px; 
+        }
+        input { 
+            width: 100%; 
+            padding: 15px; 
+            margin: 10px 0; 
+            box-sizing: border-box; 
+            font-size: 16px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 16px; 
+        }
+        button:hover { 
+            background-color: #218838; 
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .message { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            color: #155724; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+            color: #721c24; 
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            border: 1px solid #bee5eb; 
+            color: #0c5460; 
+        }
+        .otp-hint {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <a href="signup.html" class="back-link">← Retour à l'inscription</a>
+    <h1>Vérification de votre compte</h1>
+    
+    <div class="message info">
+        Un code de vérification à 6 chiffres a été généré pour votre compte.
+        <br><small>Saisissez-le ci-dessous pour activer votre compte.</small>
+    </div>
+
+    <div id="otpHint" class="otp-hint" style="display: none;">
+        <strong>Code généré :</strong> <span id="hintCode"></span>
+        <br><small>(Normalement envoyé par email)</small>
+    </div>
+
+    <form id="verifyForm">
+        <input 
+            type="text" 
+            id="otpCode" 
+            placeholder="Entrez le code à 6 chiffres" 
+            maxlength="6" 
+            pattern="[0-9]{6}" 
+            required
+            autocomplete="off"
+        >
+        <button type="submit" id="verifyBtn">Vérifier le code</button>
+    </form>
+
+    <div id="messageDiv"></div>
+
+    <script>
+        const form = document.getElementById('verifyForm');
+        const messageDiv = document.getElementById('messageDiv');
+        const otpInput = document.getElementById('otpCode');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const otpHint = document.getElementById('otpHint');
+        const hintCode = document.getElementById('hintCode');
+
+        const accountId = localStorage.getItem('accountId');
+        const generatedOtp = localStorage.getItem('generatedOtp');
+
+        if (!accountId) {
+            messageDiv.innerHTML = `
+                <div class="message error">
+                    Aucun compte en cours de vérification. 
+                    <a href="signup.html">Retour à l'inscription</a>
+                </div>
+            `;
+        } else if (generatedOtp) {
+            otpHint.style.display = 'block';
+            hintCode.textContent = generatedOtp;
+        }
+
+        otpInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!accountId) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Erreur : Aucun identifiant de compte trouvé.
+                    </div>
+                `;
+                return;
+            }
+
+            const otpCode = otpInput.value.trim();
+            
+            if (otpCode.length !== 6) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Le code OTP doit contenir exactement 6 chiffres.
+                    </div>
+                `;
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Vérification...';
+
+            try {
+                const response = await fetch('/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        accountId: accountId,
+                        otp: otpCode
+                    })
+                });
+
+                const result = await response.text();
+
+                if (response.ok) {
+                    messageDiv.innerHTML = `
+                        <div class="message success">
+                            ${result}
+                            <br><small>Redirection vers la page de connexion...</small>
+                        </div>
+                    `;
+
+                    localStorage.removeItem('accountId');
+                    localStorage.removeItem('generatedOtp');
+
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="message error">
+                            ${result}
+                        </div>
+                    `;
+                    
+                    verifyBtn.disabled = false;
+                    verifyBtn.textContent = 'Vérifier le code';
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Erreur de connexion : ${error.message}
+                    </div>
+                `;
+                
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Vérifier le code';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Inscription</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 400px; 
+            margin: 50px auto; 
+            padding: 20px; 
+        }
+        input { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 10px 0; 
+            box-sizing: border-box; 
+        }
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 16px; 
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        .message { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            color: #155724; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+            color: #721c24; 
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin : 10px 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Retour à l'accueil</a>
+    <h1>S'inscrire sur BrokerX</h1>
+    <form id="signupForm">
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="text" id="phone" placeholder="Téléphone" required>
+        <input type="password" id="password" placeholder="Mot de passe" required>
+        <input type="text" id="firstName" placeholder="Prénom" required>
+        <input type="text" id="lastName" placeholder="Nom" required>
+        <input type="date" id="dateOfBirth" placeholder="Date de naissance" required>
+        <input type="text" id="address" placeholder="Adresse" required>
+        <button type="submit">S'inscrire</button>
+    </form>
+
+    <div id="messageDiv"></div>
+
+    <script>
+        const form = document.getElementById('signupForm');
+        const messageDiv = document.getElementById('messageDiv');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                hashedPassword: document.getElementById('password').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                dateOfBirth: document.getElementById('dateOfBirth').value,
+                address: document.getElementById('address').value
+            };
+
+            try {
+                const response = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('accountId', result.accountId);
+                    localStorage.setItem('generatedOtp', result.otp);
+                    
+                    messageDiv.innerHTML = `
+                        <div class="message success">
+                            ${result.message}<br>
+                            <strong>Code OTP généré : ${result.otp}</strong><br>
+                            <small>(Dans un vrai système, ce code serait envoyé par email)</small>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.location.href = 'verify-otp.html';
+                    }, 3000);
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="message error">
+                            Erreur lors de l'inscription : ${result.message || 'Erreur inconnue'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                messageDiv.innerHTML = `
+                    <div class="message error">
+                        Erreur de connexion : ${error.message}
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

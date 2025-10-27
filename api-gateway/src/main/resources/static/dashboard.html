@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - BrokerX+</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .wallet-display {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 3rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 1rem;
+        }
+
+        .balance-large {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 2rem 0;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+
+        .error-message {
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8d7da;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">BrokerX+</div>
+        
+        <div class="header-right">
+            <div class="wallet-display" id="walletDisplay">
+                <span id="walletText">My Wallet: Loading...</span>
+            </div>
+            
+            <button class="logout-btn" onclick="logout()">Se déconnecter</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h3 class="card-title">💰 Mon Portefeuille</h3>
+            <div class="balance-large" id="balanceAmount">$0.00</div>
+            
+            <button class="btn btn-success" onclick="showDepositModal()">Déposer des fonds</button>
+            <button class="btn" onclick="window.location.href='order-placement.html'">Placer un ordre</button>
+        </div>
+        
+        <div id="errorDiv"></div>
+    </div>
+
+    <script>
+        // Vérifier l'authentification au chargement
+        console.log('Dashboard: Checking authentication...');
+        const token = localStorage.getItem('token');
+        const userEmail = localStorage.getItem('userEmail');
+        
+        console.log('Token exists:', token ? 'YES' : 'NO');
+        console.log('Token value:', token);
+        console.log('User email:', userEmail);
+        
+        if (!token) {
+            console.error('No token found, redirecting to login');
+            alert('Session expirée ou inexistante. Veuillez vous connecter.');
+            window.location.href = 'login.html';
+        }
+
+        let userWallet = null;
+
+        // Helper pour les requêtes authentifiées
+        async function authenticatedFetch(url, options = {}) {
+            const token = localStorage.getItem('token');
+            
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...options.headers
+            };
+
+            try {
+                const response = await fetch(url, { ...options, headers });
+                
+                if (response.status === 401 || response.status === 403) {
+                    // Token invalide ou expiré
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('userEmail');
+                    window.location.href = 'login.html';
+                    return null;
+                }
+                
+                return response;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                throw error;
+            }
+        }
+
+        async function loadWalletInfo() {
+            try {
+                const response = await authenticatedFetch('/wallets/my-wallet');
+                
+                if (response && response.ok) {
+                    userWallet = await response.json();
+                    updateWalletDisplay(userWallet);
+                } else {
+                    document.getElementById('walletText').textContent = 'My Wallet: No wallet found';
+                    document.getElementById('balanceAmount').textContent = 'No Wallet';
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du wallet:', error);
+                showError('Erreur de chargement du wallet');
+            }
+        }
+
+        function updateWalletDisplay(wallet) {
+            const balance = parseFloat(wallet.balance || 0).toFixed(2);
+            const currency = wallet.currency || 'USD';
+            
+            document.getElementById('walletText').textContent = `My Wallet: ${balance} ${currency}`;
+            document.getElementById('balanceAmount').textContent = `$${balance}`;
+        }
+
+        async function showDepositModal() {
+            const amount = prompt('Montant à déposer (USD):');
+            if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+
+            if (!userWallet) {
+                alert('Aucun wallet trouvé.');
+                return;
+            }
+
+            try {
+                const response = await authenticatedFetch(
+                    `/wallets/deposit?walletId=${userWallet.walletId}&amount=${parseFloat(amount)}&paymentMethod=CARD`,
+                    { method: 'POST' }
+                );
+
+                if (response && response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`✅ ${result.message}\n💳 Transaction ID: ${result.transactionId}\n💰 Montant: $${result.amount}`);
+                        loadWalletInfo();
+                    } else {
+                        alert(`Échec du dépôt:\n${result.message}`);
+                    }
+                }
+            } catch (error) {
+                alert('Erreur lors du dépôt : ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('errorDiv').innerHTML = `
+                <div class="error-message">${message}</div>
+            `;
+        }
+
+        function logout() {
+            if (confirm('Voulez-vous vous déconnecter ?')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userEmail');
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Rafraîchir le wallet toutes les 30 secondes
+        setInterval(loadWalletInfo, 30000);
+
+        // Charger au démarrage
+        window.addEventListener('DOMContentLoaded', loadWalletInfo);
+    </script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des Ordres - BrokerX+</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+        
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+        
+        .form-group { margin-bottom: 1rem; }
+        
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 1rem;
+        }
+        
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107, #ff9800);
+        }
+        
+        .order-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .order-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .message {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <a href="dashboard.html" class="back-link">← Retour au Dashboard</a>
+    
+    <div class="container">
+        <!-- Placement d'ordre -->
+        <div class="card">
+            <h2 class="card-title">📈 Placer un Ordre</h2>
+            <form id="orderForm">
+                <div class="form-group">
+                    <label for="clientOrderId">Client Order ID:</label>
+                    <input type="text" id="clientOrderId" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="symbol">Symbole:</label>
+                    <select id="symbol" required>
+                        <option value="">Sélectionner</option>
+                        <option value="AAPL">AAPL</option>
+                        <option value="GOOGL">GOOGL</option>
+                        <option value="MSFT">MSFT</option>
+                        <option value="TSLA">TSLA</option>
+                        <option value="AMZN">AMZN</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="side">Côté:</label>
+                    <select id="side" required>
+                        <option value="">Sélectionner</option>
+                        <option value="BUY">BUY</option>
+                        <option value="SELL">SELL</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="orderType">Type:</label>
+                    <select id="orderType" required onchange="togglePriceField()">
+                        <option value="">Sélectionner</option>
+                        <option value="MARKET">MARKET</option>
+                        <option value="LIMIT">LIMIT</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="quantity">Quantité:</label>
+                    <input type="number" id="quantity" min="1" required>
+                </div>
+                
+                <div class="form-group" id="priceGroup" style="display: none;">
+                    <label for="price">Prix:</label>
+                    <input type="number" id="price" step="0.01" min="0.01">
+                </div>
+                
+                <div class="form-group">
+                    <label for="timeInForce">Durée:</label>
+                    <select id="timeInForce" required>
+                        <option value="DAY">DAY</option>
+                        <option value="IOC">IOC</option>
+                        <option value="FOK">FOK</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn">Placer l'ordre</button>
+            </form>
+            
+            <div id="messageDiv"></div>
+        </div>
+        
+        <!-- Liste des ordres -->
+        <div class="card">
+            <h3 class="card-title">📋 Mes Ordres</h3>
+            <button type="button" class="btn" onclick="loadOrders()">Actualiser</button>
+            <div id="ordersList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Vérifier auth
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Helper pour requêtes auth
+        async function authenticatedFetch(url, options = {}) {
+            const token = localStorage.getItem('token');
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...options.headers
+            };
+
+            const response = await fetch(url, { ...options, headers });
+            
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+                return null;
+            }
+            
+            return response;
+        }
+
+        function togglePriceField() {
+            const orderType = document.getElementById('orderType').value;
+            const priceGroup = document.getElementById('priceGroup');
+            const priceInput = document.getElementById('price');
+            
+            if (orderType === 'LIMIT') {
+                priceGroup.style.display = 'block';
+                priceInput.required = true;
+            } else {
+                priceGroup.style.display = 'none';
+                priceInput.required = false;
+            }
+        }
+
+        function generateClientOrderId() {
+            const timestamp = Date.now();
+            const random = Math.floor(Math.random() * 1000);
+            document.getElementById('clientOrderId').value = `ORD_${timestamp}_${random}`;
+        }
+
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const orderData = {
+                clientOrderId: document.getElementById('clientOrderId').value,
+                symbol: document.getElementById('symbol').value,
+                side: document.getElementById('side').value,
+                orderType: document.getElementById('orderType').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                timeInForce: document.getElementById('timeInForce').value
+            };
+
+            if (orderData.orderType === 'LIMIT') {
+                orderData.price = parseFloat(document.getElementById('price').value);
+            }
+
+            try {
+                const response = await authenticatedFetch('/orders', {
+                    method: 'POST',
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response && response.ok) {
+                    const result = await response.json();
+                    showMessage(`✅ Ordre placé: ${result.orderId}`, 'success');
+                    document.getElementById('orderForm').reset();
+                    generateClientOrderId();
+                    loadOrders();
+                } else {
+                    const error = await response.json();
+                    showMessage(`❌ Erreur: ${error.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur: ' + error.message, 'error');
+            }
+        });
+
+        async function loadOrders() {
+            const ordersList = document.getElementById('ordersList');
+            ordersList.innerHTML = '<p>Chargement...</p>';
+
+            try {
+                const response = await authenticatedFetch('/orders');
+                if (!response || !response.ok) return;
+
+                const orders = await response.json();
+
+                if (orders.length === 0) {
+                    ordersList.innerHTML = '<p>Aucun ordre.</p>';
+                    return;
+                }
+
+                let html = '';
+                orders.forEach(order => {
+                    const canModify = ['WORKING', 'NEW'].includes(order.status);
+                    html += `
+                        <div class="order-item">
+                            <strong>${order.clientOrderId}</strong> - ${order.status}
+                            <br>${order.side} ${order.quantity} ${order.symbol} @ ${order.price || 'MARKET'}
+                            <div class="order-actions">
+                                ${canModify ? `
+                                    <button class="btn btn-warning" onclick="modifyOrder('${order.orderId}')">Modifier</button>
+                                    <button class="btn btn-danger" onclick="cancelOrder('${order.orderId}')">Annuler</button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                ordersList.innerHTML = html;
+            } catch (error) {
+                ordersList.innerHTML = '<p class="error">Erreur de chargement</p>';
+            }
+        }
+
+        async function cancelOrder(orderId) {
+            if (!confirm('Annuler cet ordre ?')) return;
+
+            try {
+                const response = await authenticatedFetch(`/orders/${orderId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.ok) {
+                    const result = await response.json();
+                    showMessage(`✅ ${result.message}`, 'success');
+                    loadOrders();
+                } else {
+                    const error = await response.json();
+                    showMessage(`❌ ${error.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function modifyOrder(orderId) {
+            const newQuantity = prompt('Nouvelle quantité (laisser vide pour ne pas modifier):');
+            const newPrice = prompt('Nouveau prix (laisser vide pour ne pas modifier):');
+
+            if (!newQuantity && !newPrice) return;
+
+            const data = {};
+            if (newQuantity) data.newQuantity = parseInt(newQuantity);
+            if (newPrice) data.newPrice = parseFloat(newPrice);
+
+            try {
+                const response = await authenticatedFetch(`/orders/${orderId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(data)
+                });
+
+                if (response && response.ok) {
+                    const result = await response.json();
+                    showMessage(`✅ ${result.message}`, 'success');
+                    loadOrders();
+                } else {
+                    const error = await response.json();
+                    showMessage(`❌ ${error.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(msg, type) {
+            document.getElementById('messageDiv').innerHTML = 
+                `<div class="message ${type}">${msg}</div>`;
+            setTimeout(() => {
+                document.getElementById('messageDiv').innerHTML = '';
+            }, 5000);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            generateClientOrderId();
+            loadOrders();
+        });
+    </script>
+</body>
+</html>

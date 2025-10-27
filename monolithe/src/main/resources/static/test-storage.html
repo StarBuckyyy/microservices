@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test LocalStorage - BrokerX+</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnostic LocalStorage & JWT</h1>
+
+    <div class="test-section">
+        <h2>1. État du LocalStorage</h2>
+        <button onclick="checkStorage()">Vérifier maintenant</button>
+        <button onclick="clearStorage()" class="btn-danger">Vider le localStorage</button>
+        <div id="storageStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test d'écriture/lecture</h2>
+        <button onclick="testWriteRead()">Tester écriture/lecture</button>
+        <div id="writeReadStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Simuler un login</h2>
+        <button onclick="simulateLogin()">Simuler sauvegarde token</button>
+        <button onclick="testRedirect()">Tester redirection</button>
+        <div id="simulateStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Tester l'API avec le token</h2>
+        <button onclick="testApiCall()">Appeler /wallets/first</button>
+        <div id="apiStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Navigation</h2>
+        <button onclick="window.location.href='login.html'">Aller au Login</button>
+        <button onclick="window.location.href='dashboard.html'">Aller au Dashboard</button>
+    </div>
+
+    <script>
+        function checkStorage() {
+            const status = document.getElementById('storageStatus');
+            const token = localStorage.getItem('token');
+            const email = localStorage.getItem('userEmail');
+            const userId = localStorage.getItem('userId');
+            
+            let html = '<h3>Contenu du localStorage :</h3>';
+            
+            if (token) {
+                html += `<div class="result success">
+                    ✅ Token trouvé<br>
+                    <strong>Longueur:</strong> ${token.length} caractères<br>
+                    <strong>Début:</strong> ${token.substring(0, 50)}...<br>
+                    <strong>Email:</strong> ${email || 'Non défini'}<br>
+                    <strong>User ID:</strong> ${userId || 'Non défini'}
+                </div>`;
+            } else {
+                html += '<div class="result error">❌ Aucun token trouvé</div>';
+            }
+            
+            // Afficher tout le localStorage
+            html += '<h4>Toutes les clés :</h4><pre>';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                html += `${key}: ${value.substring(0, 100)}${value.length > 100 ? '...' : ''}\n`;
+            }
+            html += '</pre>';
+            
+            status.innerHTML = html;
+        }
+
+        function clearStorage() {
+            if (confirm('Êtes-vous sûr de vouloir vider le localStorage ?')) {
+                localStorage.clear();
+                document.getElementById('storageStatus').innerHTML = 
+                    '<div class="result info">✓ LocalStorage vidé</div>';
+                checkStorage();
+            }
+        }
+
+        function testWriteRead() {
+            const status = document.getElementById('writeReadStatus');
+            const testKey = 'test_key_' + Date.now();
+            const testValue = 'test_value_' + Date.now();
+            
+            try {
+                // Écriture
+                localStorage.setItem(testKey, testValue);
+                
+                // Lecture immédiate
+                const readValue = localStorage.getItem(testKey);
+                
+                if (readValue === testValue) {
+                    status.innerHTML = `
+                        <div class="result success">
+                            ✅ Test réussi !<br>
+                            Écrit: ${testValue}<br>
+                            Lu: ${readValue}
+                        </div>
+                    `;
+                } else {
+                    status.innerHTML = `
+                        <div class="result error">
+                            ❌ Problème de lecture/écriture<br>
+                            Écrit: ${testValue}<br>
+                            Lu: ${readValue}
+                        </div>
+                    `;
+                }
+                
+                // Nettoyer
+                localStorage.removeItem(testKey);
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="result error">
+                        ❌ Erreur: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function simulateLogin() {
+            const status = document.getElementById('simulateStatus');
+            const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.fake';
+            const fakeEmail = 'test@brokerx.com';
+            const fakeUserId = '12345678-1234-1234-1234-123456789abc';
+            
+            localStorage.setItem('token', fakeToken);
+            localStorage.setItem('userEmail', fakeEmail);
+            localStorage.setItem('userId', fakeUserId);
+            
+            // Vérifier
+            const savedToken = localStorage.getItem('token');
+            
+            if (savedToken === fakeToken) {
+                status.innerHTML = `
+                    <div class="result success">
+                        ✅ Token simulé sauvegardé avec succès !<br>
+                        Vous pouvez maintenant tester la redirection.
+                    </div>
+                `;
+            } else {
+                status.innerHTML = `
+                    <div class="result error">
+                        ❌ Échec de la sauvegarde du token simulé
+                    </div>
+                `;
+            }
+        }
+
+        function testRedirect() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Aucun token trouvé. Utilisez "Simuler sauvegarde token" d\'abord.');
+                return;
+            }
+            
+            console.log('Token before redirect:', token);
+            alert('Redirection dans 2 secondes. Vérifiez la console et le localStorage.');
+            
+            setTimeout(() => {
+                console.log('Redirecting with token:', localStorage.getItem('token'));
+                window.location.href = 'dashboard.html';
+            }, 2000);
+        }
+
+        async function testApiCall() {
+            const status = document.getElementById('apiStatus');
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                status.innerHTML = `
+                    <div class="result error">
+                        ❌ Aucun token trouvé. Connectez-vous d'abord.
+                    </div>
+                `;
+                return;
+            }
+            
+            status.innerHTML = '<div class="result info">⏳ Appel en cours...</div>';
+            
+            try {
+                const response = await fetch('/wallets/first', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    status.innerHTML = `
+                        <div class="result success">
+                            ✅ API Call réussi !<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Response:</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    status.innerHTML = `
+                        <div class="result error">
+                            ❌ API Call échoué<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Response:</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="result error">
+                        ❌ Erreur réseau: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-check au chargement
+        window.addEventListener('DOMContentLoaded', () => {
+            checkStorage();
+        });
+    </script>
+</body>
+</html>
