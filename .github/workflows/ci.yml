@@ -74,3 +74,4 @@ jobs:
         run: |
           echo "Stopping all services and removing volumes..."
           docker-compose -f docker-compose-microservices.yml down -v --remove-orphans
+  
