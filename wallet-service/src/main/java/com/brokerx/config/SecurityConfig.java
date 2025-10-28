@@ -38,6 +38,9 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/wallets/account/**").permitAll()
                 .requestMatchers("/wallets").permitAll()
+                .requestMatchers("/swagger-ui/**").permitAll()
+                .requestMatchers("/v3/api-docs/**").permitAll()
+                .requestMatchers("/api-docs/**").permitAll()
                 
                 .requestMatchers("/wallets/my-wallet").authenticated()
                 .requestMatchers("/wallets/deposit").authenticated()

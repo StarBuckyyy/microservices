@@ -35,6 +35,10 @@ management:
     health:
       show-details: always
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
 # Logging
 logging:
   level:

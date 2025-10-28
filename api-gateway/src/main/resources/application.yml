@@ -1,3 +1,5 @@
+# api-gateway/src/main/resources/application.yml
+
 server:
   port: 8080
 
@@ -7,71 +9,35 @@ spring:
   
   cloud:
     gateway:
-      # Configuration CORS globale
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: 
-              - "http://localhost:8080"
-              - "http://127.0.0.1:8080"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
+            allowedOrigins: "*"
+            allowedMethods: "*"
             allowedHeaders: "*"
-            allowCredentials: true
-            maxAge: 3600
       
-      # Routes vers les microservices
       routes:
-        # Account Service - Auth endpoints (PUBLIC)
-        - id: auth-routes
-          uri: http://localhost:8081
+        - id: account-service-routes
+          uri: http://account-service:8081
           predicates:
-            - Path=/auth/**
-          filters:
-            - StripPrefix=0
+            - Path=/auth/**, /users/**, /accounts/**, /audit/**
         
-        # Account Service - User/Account management (PROTECTED)
-        - id: account-routes
-          uri: http://localhost:8081
-          predicates:
-            - Path=/users/**, /accounts/**
-          filters:
-            - StripPrefix=0
-        
-        # Wallet Service (PROTECTED)
-        - id: wallet-routes
-          uri: http://localhost:8082
+        - id: wallet-service-routes
+          uri: http://wallet-service:8082
           predicates:
             - Path=/wallets/**, /transactions/**
-          filters:
-            - StripPrefix=0
-        
-        # Order Service (PROTECTED)
-        - id: order-routes
-          uri: http://localhost:8083
+
+        - id: order-service-routes
+          uri: http://order-service:8083
           predicates:
             - Path=/orders/**
-          filters:
-            - StripPrefix=0
-        
-        # Audit endpoint (DEBUG - should be protected in prod)
-        - id: audit-routes
-          uri: http://localhost:8081
-          predicates:
-            - Path=/audit/**
-          filters:
-            - StripPrefix=0
 
-# JWT Configuration (pour validation dans le Gateway)
+
+# JWT Configuration (inchangé)
 jwt:
   secret: ${JWT_SECRET:mySecretKeyForBrokerXPlatform2025ThisIsVerySecretAndLongEnough}
 
-# Management/Actuator
+# Management/Actuator (inchangé)
 management:
   endpoints:
     web:
@@ -81,9 +47,8 @@ management:
     health:
       show-details: always
 
-# Logging
+# Logging (inchangé)
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web: DEBUG
+    org.springframework.cloud.gateway: INFO
     com.brokerx: INFO

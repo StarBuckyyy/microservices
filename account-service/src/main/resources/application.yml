@@ -19,7 +19,11 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     show-sql: false
-
+  
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  
 # JWT Configuration
 jwt:
   secret: ${JWT_SECRET:mySecretKeyForBrokerXPlatform2025ThisIsVerySecretAndLongEnough}
